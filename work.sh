@@ -11,9 +11,14 @@ monitor_and_kill() {
                 pkill 'python ./backup.py -u' || pkill python || pkill -9 python
             ) &
             break
+        elif [[ "$line" == *'5000/5000'* ]]; then
+            found=1
+            (
+                pkill 'python ./backup.py -u' || pkill python || pkill -9 python
+            ) &
+            break
         fi
     done
-
     return 0
 }
 python ./backup.py -u "$1" "$2" "$3" | monitor_and_kill
