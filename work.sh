@@ -7,13 +7,13 @@ monitor_and_kill() {
         
         if [[ "$line" == *'4900/5000'* ]]; then
             found=1
-            (
+            (   echo 'include 5000/5000 kill script'
                 pkill 'python ./backup.py -u' || pkill python || pkill -9 python
             ) &
             break
         elif [[ "$line" == *'5000/5000'* ]]; then
             found=1
-            (
+            (   echo 'include 5000/5000 kill script'
                 pkill 'python ./backup.py -u' || pkill python || pkill -9 python
             ) &
             break

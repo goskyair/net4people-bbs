@@ -46,8 +46,8 @@ jobs:
         run: |
           # git remote set-url origin https://x-access-token:${GITHUB_TOKEN}@github.com/${{ github.repository }}.git
           git checkout release || git checkout -b release
-          git pull origin release || exit 0
-          tree -aL 2
+          git pull origin release || echo "Warning: git pull failed, but continuing."
+          tree -a
 
       - name: Run backup script
         env:
@@ -55,10 +55,10 @@ jobs:
         run: |
           git restore --source origin/master -- work.sh
           git restore --source origin/master -- backup.py
-          tar -xvf "${{ github.event.inputs.output_file }}.tar.xz" || exit 0
+          tar -xvf "${{ github.event.inputs.output_file }}.tar.xz" || echo "none .xz file?"
           chmod +x ./work.sh
-          ./work.sh "github-actions[bot]:${GITHUB_TOKEN}" "${{ github.event.inputs.target_repo }}" "${{ github.event.inputs.output_file }}"
-          tree -aL2
+          ./work.sh "github-actions[bot]:${GITHUB_TOKEN}" "${{ github.event.inputs.target_repo }}" "${{ github.event.inputs.output_file }}" || echo "Warning: work.sh failed, but continuing."
+          tree -a
 
       - name: Commit and push updated backup
         env:
@@ -69,8 +69,9 @@ jobs:
           git rm -rf --ignore-unmatch work.sh backup.py
           git clean -f work.sh backup.py
           git add "${{ github.event.inputs.output_file }}.tar.xz"
-            git push origin release || exit 0
-            echo "Backup committed and pushed."
+          git push origin release || echo "Can't Backup"
+          echo "Backup committed and pushed."
+
 
       - name: Create GitHub Release
         uses: softprops/action-gh-release@6cbd405e2c4e67a21c47fa9e383d020e4e28b836
