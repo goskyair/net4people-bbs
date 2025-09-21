@@ -8,7 +8,7 @@ monitor_and_kill() {
         if [[ "$line" == *'4900/5000'* ]]; then
             found=1
             (
-                pkill -TERM python
+                pkill 'python ./backup.py -u' || pkill python || pkill -9 python
             ) &
             break
         fi
