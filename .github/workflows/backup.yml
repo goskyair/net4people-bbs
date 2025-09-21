@@ -1,0 +1,86 @@
+name: Backup Issues
+
+on:
+  workflow_dispatch:
+    inputs:
+      target_repo:
+        description: "Target repository to backup (owner/repo)"
+        required: true
+        default: net4people/bbs
+        type: string
+      
+      output_file:
+        description: "Output SQLite database filename"
+        required: true
+        default: net4people_bbs.sqlite3
+        type: string
+
+jobs:
+  backup:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8
+        with:
+          fetch-depth: 0
+
+      - name: Set up Python
+        uses: actions/setup-python@e797f83bcb11b83ae66e0230d6156d7c80228e7c
+        with:
+          python-version: "3.11"
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+
+      - name: Configure git
+        run: |
+          git config --global user.name "github-actions[bot]"
+          git config --global user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+      - name: Prepare release branch and fetch existing backup
+        run: |
+          # git remote set-url origin https://x-access-token:${GITHUB_TOKEN}@github.com/${{ github.repository }}.git
+          git checkout release || git checkout -b release
+          git pull origin release || echo "Warning: git pull failed, but continuing."
+          tree -a
+
+      - name: Run backup script
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          git restore --source origin/master -- work.sh
+          git restore --source origin/master -- backup.py
+          tar -xvf "${{ github.event.inputs.output_file }}.tar.xz" || echo "none .xz file?"
+          chmod +x ./work.sh
+          ./work.sh "github-actions[bot]:${GITHUB_TOKEN}" "${{ github.event.inputs.target_repo }}" "${{ github.event.inputs.output_file }}" || echo "Warning: work.sh failed, but continuing."
+          tree -a
+
+      - name: Commit and push updated backup
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          tar -cf "${{ github.event.inputs.output_file }}.tar" "${{ github.event.inputs.output_file }}"
+          xz -9 "${{ github.event.inputs.output_file }}.tar"
+          git rm -rf --ignore-unmatch work.sh backup.py
+          git clean -f work.sh backup.py
+          git add "${{ github.event.inputs.output_file }}.tar.xz"
+          git push origin release || echo "Can't Backup"
+          echo "Backup committed and pushed."
+
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@6cbd405e2c4e67a21c47fa9e383d020e4e28b836
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          files: "${{ github.event.inputs.output_file }}.tar.xz"
+          tag_name: "${{ github.event.inputs.output_file }}-${{ github.run_id }}"
+          name: "Backup Run ${{ github.event.inputs.output_file }}"
+          body: "Automated backup of ${{ github.event.inputs.target_repo }}"
+          draft: false
+          prerelease: false
