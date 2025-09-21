@@ -56,8 +56,7 @@ jobs:
           git restore --source origin/master -- work.sh
           git restore --source origin/master -- backup.py
           tar -xvf "${{ github.event.inputs.output_file }}.tar.xz" || echo "none .xz file?"
-          chmod +x ./work.sh
-          ./work.sh "github-actions[bot]:${GITHUB_TOKEN}" "${{ github.event.inputs.target_repo }}" "${{ github.event.inputs.output_file }}" || echo "Warning: work.sh failed, but continuing."
+          python ./backup.py -u "github-actions[bot]:${GITHUB_TOKEN}" "${{ github.event.inputs.target_repo }}" "${{ github.event.inputs.output_file }}" || echo "Warning: work failed, but continuing."
           tree -a
 
       - name: Commit and push updated backup
@@ -69,9 +68,9 @@ jobs:
           git rm -rf --ignore-unmatch work.sh backup.py
           git clean -f work.sh backup.py
           git add "${{ github.event.inputs.output_file }}.tar.xz"
+          git commit -m "Update backup - $(date -u +%Y-%m-%dT%H_%M_%SZ)"
           git push origin release || echo "Can't Backup"
           echo "Backup committed and pushed."
-
 
       - name: Create GitHub Release
         uses: softprops/action-gh-release@6cbd405e2c4e67a21c47fa9e383d020e4e28b836
