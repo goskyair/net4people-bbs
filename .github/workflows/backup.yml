@@ -1,0 +1,75 @@
+name: Backup Issues
+
+on:
+  workflow_dispatch:
+    inputs:      
+      target_repo:
+        description: "Target repository to backup (owner/repo)"
+        required: true
+        default: net4people/bbs
+        type: string
+      
+      output_file:
+        description: "Output SQLite database filename"
+        required: true
+        default: net4people_bbs.sqlite3
+        type: string
+
+
+jobs:
+  backup:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: "3.11"
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+
+      - name: Configure git
+        run: |
+          git config --global user.name "github-actions[bot]"
+          git config --global user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+      - name: Prepare release branch and fetch existing backup
+        run: |
+          git checkout release || git checkout -b release
+          git pull origin release || exit 0
+          tree
+
+      - name: Run backup script
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          git restore --source origin/master -- work.sh
+          git restore --source origin/master -- backup.py
+          chmod +x ./work.sh
+          ./work.sh "github-actions[bot]:${GITHUB_TOKEN}" "${{ github.event.inputs.target_repo }}" "${{ github.event.inputs.output_file }}"
+          tree
+
+      - name: Commit and push updated backup
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          git rm -rf --ignore-unmatch work.sh backup.py
+          git clean -f work.sh backup.py
+          git add "${{ github.event.inputs.output_file }}"
+          if git diff --cached --exit-code; then
+            echo "No changes"
+          else
+            git commit -m "save backup $(date -u +%Y-%m-%dT%H_%M_%SZ)"
+            git push origin release
+            echo "Backup committed and pushed."
+          fi
